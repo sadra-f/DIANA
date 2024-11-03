@@ -24,21 +24,21 @@ class DIANA:
             if self.step_limit is not None:
                 if step_count >= self.step_limit:
                     break
-            #iter 3 or 1
+            #iter 3 or 1 ==> select which cluster needs to be splitted
             diameters = []
             for i in self._separated:
                 diameters.append(self._cluster_diameter(i))
             if max(diameters) <= 0: break
             selected_cluster_index = diameters.index(max(diameters))
 
-            # iter 1 or 2
+            # iter 1 or 2 ==> check which element in selected cluster should build a new cluster
             intra_dissim_res = self._max_intra_dissimilarity(selected_cluster_index)
             # since the len is one larger than the last index which will be the last index if we append a new item
             new_cluster_index = len(self._separated)
             self._separated.append([self._separated[selected_cluster_index][intra_dissim_res['Index']]])
             del self._separated[selected_cluster_index][intra_dissim_res['Index']]
 
-            # iter 2 or 3
+            # iter 2 or 3 ==> find and move elements from selected cluster to new cluster
             dissim_res = self._max_inter_dissimilarity(selected_cluster_index, new_cluster_index)
             while dissim_res is not None:
                 self._separated[new_cluster_index].append(self._separated[selected_cluster_index][dissim_res['Index']])
@@ -61,21 +61,38 @@ class DIANA:
         self._build_labels()
         return self
 
-    def _max_intra_dissimilarity(self, cluster_num):
+    def _max_intra_dissimilarity(self, cluster_index):
+        """finds the element which is most dissimilar in its cluster
+
+        Args:
+            cluster_index (int): the index of the cluster in question
+
+        Returns:
+            dict: index and avg of the element most dissimilar
+        """
         max_avg = -1
         max_indx = -1
-        for i, val1 in enumerate(self._separated[cluster_num]):
+        for i, val1 in enumerate(self._separated[cluster_index]):
             local_sum = 0
             local_avg = 0
-            for j, val2 in enumerate(self._separated[cluster_num]):
+            for j, val2 in enumerate(self._separated[cluster_index]):
                 local_sum += self._dists[val1][val2]
-            local_avg = local_sum / (len(self._separated[cluster_num]) - 1)
+            local_avg = local_sum / (len(self._separated[cluster_index]) - 1)
             if local_avg > max_avg:
                 max_avg = local_avg
                 max_indx = i
         return {'Index':max_indx, 'Average':max_avg}
 
     def _max_inter_dissimilarity(self, cluster1_index, cluster2_index):
+        """finds which element from cluster 1 can be in cluster 2
+
+        Args:
+            cluster1_index (int): index of cluster 1
+            cluster2_index (int): index of cluster 2
+
+        Returns:
+            dict: the index and dissimilarity value of the element or None if no dissim value is above 0
+        """
         max_dissim_val = -1
         max_dissim_index = -1
         for i, val1 in enumerate(self._separated[cluster1_index]):
@@ -104,6 +121,14 @@ class DIANA:
         self._cluster_history.append(list(self._separated))
 
     def _cluster_diameter(self, cluster):
+        """finds how similar values in the cluster are to each other
+
+        Args:
+            cluster (list): cluster(list) with indices of dataset values as cluster values.
+
+        Returns:
+            float: the diameter (similarity) of elements in cluster
+        """
         clus_sum = 0
         for i, val1 in enumerate(cluster):
             for j, val2 in enumerate(cluster[i:]):
